@@ -29,13 +29,13 @@ public class SyslogAppenderFactoryTest {
 
     @Test
     public void defaultIncludesAppName() throws Exception {
-        assertThat(new SyslogAppenderFactory().getLogFormat())
+        assertThat(new SyslogAppenderFactory().getLogFormat().asText())
                 .contains("%app");
     }
 
     @Test
     public void defaultIncludesPid() throws Exception {
-        assertThat(new SyslogAppenderFactory().getLogFormat())
+        assertThat(new SyslogAppenderFactory().getLogFormat().asText())
                 .contains("%pid");
     }
 

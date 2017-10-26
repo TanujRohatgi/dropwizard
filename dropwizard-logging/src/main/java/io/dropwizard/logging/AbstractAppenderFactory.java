@@ -6,13 +6,18 @@ import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.core.Appender;
 import ch.qos.logback.core.AsyncAppenderBase;
 import ch.qos.logback.core.Context;
+import ch.qos.logback.core.LayoutBase;
 import ch.qos.logback.core.pattern.PatternLayoutBase;
 import ch.qos.logback.core.spi.DeferredProcessingAware;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import io.dropwizard.jackson.Jackson;
 import io.dropwizard.logging.async.AsyncAppenderFactory;
 import io.dropwizard.logging.filter.FilterFactory;
+import io.dropwizard.logging.layout.DiscoverableLayoutFactory;
 import io.dropwizard.logging.layout.LayoutFactory;
 
 import javax.annotation.Nullable;
@@ -90,7 +95,7 @@ public abstract class AbstractAppenderFactory<E extends DeferredProcessingAware>
     protected Level threshold = Level.ALL;
 
     @Nullable
-    protected String logFormat;
+    protected JsonNode logFormat;
 
     @NotNull
     protected TimeZone timeZone = TimeZone.getTimeZone("UTC");
@@ -139,12 +144,12 @@ public abstract class AbstractAppenderFactory<E extends DeferredProcessingAware>
 
     @JsonProperty
     @Nullable
-    public String getLogFormat() {
+    public JsonNode getLogFormat() {
         return logFormat;
     }
 
     @JsonProperty
-    public void setLogFormat(String logFormat) {
+    public void setLogFormat(JsonNode logFormat) {
         this.logFormat = logFormat;
     }
 
@@ -208,12 +213,31 @@ public abstract class AbstractAppenderFactory<E extends DeferredProcessingAware>
         return asyncAppender;
     }
 
-    protected PatternLayoutBase<E> buildLayout(LoggerContext context, LayoutFactory<E> layoutFactory) {
-        final PatternLayoutBase<E> formatter = layoutFactory.build(context, timeZone);
-        if (!Strings.isNullOrEmpty(logFormat)) {
-            formatter.setPattern(logFormat);
+    @SuppressWarnings("unchecked")
+    protected LayoutBase<E> buildLayout(LoggerContext context, LayoutFactory<E> defaultLayoutFactory) {
+        final LayoutBase<E> layoutBase;
+        if (logFormat == null) {
+            layoutBase = defaultLayoutFactory.build(context, timeZone);
+        } else if (logFormat.isTextual()) {
+            final PatternLayoutBase<E> patternLayoutBase = defaultLayoutFactory.build(context, timeZone);
+            if (!Strings.isNullOrEmpty(logFormat.asText())) {
+                patternLayoutBase.setPattern(logFormat.asText());
+            }
+            layoutBase = patternLayoutBase;
+        } else if (logFormat.isObject()) {
+            // Try to parse logFormat a custom log layout (e.g. JSON or access logs JSON)
+            final DiscoverableLayoutFactory<E> layoutFactory;
+            try {
+                layoutFactory = Jackson.newObjectMapper().treeToValue(logFormat, DiscoverableLayoutFactory.class);
+            } catch (JsonProcessingException e) {
+                throw new IllegalArgumentException("Unable to deserialize logFormat", e);
+            }
+            layoutBase = layoutFactory.build(context, timeZone);
+        } else {
+            throw new IllegalArgumentException("Unknown log format: " + logFormat);
         }
-        formatter.start();
-        return formatter;
+
+        layoutBase.start();
+        return layoutBase;
     }
 }

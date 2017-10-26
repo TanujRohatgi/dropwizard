@@ -7,6 +7,8 @@ import ch.qos.logback.core.Appender;
 import ch.qos.logback.core.net.SyslogConstants;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import io.dropwizard.logging.async.AsyncAppenderFactory;
 import io.dropwizard.logging.filter.LevelFilterFactory;
 import io.dropwizard.logging.layout.LayoutFactory;
@@ -135,8 +137,8 @@ public class SyslogAppenderFactory extends AbstractAppenderFactory<ILoggingEvent
      */
     @Override
     @JsonProperty
-    public String getLogFormat() {
-        return logFormat;
+    public JsonNode getLogFormat() {
+        return new TextNode(logFormat);
     }
 
     /**
@@ -144,8 +146,8 @@ public class SyslogAppenderFactory extends AbstractAppenderFactory<ILoggingEvent
      */
     @Override
     @JsonProperty
-    public void setLogFormat(String logFormat) {
-        this.logFormat = logFormat;
+    public void setLogFormat(JsonNode jsonNode) {
+        this.logFormat = jsonNode.asText();
     }
 
     /**
